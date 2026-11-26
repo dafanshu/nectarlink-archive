@@ -48,7 +48,7 @@ use crate::{
     win::{autostart, http, toast},
 };
 
-const LATEST: &str = "https://api.github.com/repos/thtbee/nectarlink/releases/latest";
+const LATEST: &str = "https://api.github.com/repos/dafanshu/nectarlink-archive/releases/latest";
 const FIRST_CHECK: Duration = Duration::from_secs(30);
 /// How often a nightly install checks: nightlies are built at most every two
 /// hours. A check is a conditional GET, a few hundred bytes when unchanged.
@@ -556,7 +556,7 @@ fn newer_release_for(release: Release, current: &str, suffix: &str) -> Option<Up
     Some(Update {
         version,
         name: None,
-        notes_url: release.html_url,
+        notes_url: feed::release_notes_url(&release.html_url).to_owned(),
         installer_url: installer.browser_download_url.clone(),
         installer_name: installer.name.clone(),
         sums_url: Some(sums.browser_download_url.clone()),
@@ -1374,64 +1374,71 @@ mod tests {
     fn release(tag: &str) -> Release {
         Release {
             tag_name: tag.into(),
-            html_url: "https://github.com/thtbee/nectarlink/releases/tag/v9".into(),
+            html_url: "https://github.com/dafanshu/nectarlink-archive/releases/tag/v9".into(),
             draft: false,
             prerelease: false,
             assets: vec![
                 Asset {
                     name: "Nectarlink-9.0.0-x64-setup.exe".into(),
-                    browser_download_url: "https://github.com/thtbee/nectarlink/releases/download/v9/setup"
-                        .into(),
+                    browser_download_url:
+                        "https://github.com/dafanshu/nectarlink-archive/releases/download/v9/setup".into(),
                 },
                 Asset {
                     name: "Nectarlink-9.0.0-arm64-setup.exe".into(),
                     browser_download_url:
-                        "https://github.com/thtbee/nectarlink/releases/download/v9/setup-arm64".into(),
+                        "https://github.com/dafanshu/nectarlink-archive/releases/download/v9/setup-arm64"
+                            .into(),
                 },
                 Asset {
                     name: "Nectarlink-9.0.0-x86_64.AppImage".into(),
                     browser_download_url:
-                        "https://github.com/thtbee/nectarlink/releases/download/v9/appimage-x64".into(),
+                        "https://github.com/dafanshu/nectarlink-archive/releases/download/v9/appimage-x64"
+                            .into(),
                 },
                 Asset {
                     name: "nectarlink_9.0.0_amd64.deb".into(),
                     browser_download_url:
-                        "https://github.com/thtbee/nectarlink/releases/download/v9/deb-amd64".into(),
+                        "https://github.com/dafanshu/nectarlink-archive/releases/download/v9/deb-amd64".into(),
                 },
                 Asset {
                     name: "nectarlink-9.0.0-1.x86_64.rpm".into(),
                     browser_download_url:
-                        "https://github.com/thtbee/nectarlink/releases/download/v9/rpm-x86_64".into(),
+                        "https://github.com/dafanshu/nectarlink-archive/releases/download/v9/rpm-x86_64"
+                            .into(),
                 },
                 Asset {
                     name: "Nectarlink-9.0.0-aarch64.AppImage".into(),
                     browser_download_url:
-                        "https://github.com/thtbee/nectarlink/releases/download/v9/appimage-arm64".into(),
+                        "https://github.com/dafanshu/nectarlink-archive/releases/download/v9/appimage-arm64"
+                            .into(),
                 },
                 Asset {
                     name: "nectarlink_9.0.0_arm64.deb".into(),
                     browser_download_url:
-                        "https://github.com/thtbee/nectarlink/releases/download/v9/deb-arm64".into(),
+                        "https://github.com/dafanshu/nectarlink-archive/releases/download/v9/deb-arm64".into(),
                 },
                 Asset {
                     name: "nectarlink-9.0.0-1.aarch64.rpm".into(),
                     browser_download_url:
-                        "https://github.com/thtbee/nectarlink/releases/download/v9/rpm-aarch64".into(),
+                        "https://github.com/dafanshu/nectarlink-archive/releases/download/v9/rpm-aarch64"
+                            .into(),
                 },
                 Asset {
                     name: "Nectarlink-9.0.0-linux-x86_64.tar.gz".into(),
                     browser_download_url:
-                        "https://github.com/thtbee/nectarlink/releases/download/v9/tarball-x64".into(),
+                        "https://github.com/dafanshu/nectarlink-archive/releases/download/v9/tarball-x64"
+                            .into(),
                 },
                 Asset {
                     name: "Nectarlink-9.0.0-linux-aarch64.tar.gz".into(),
                     browser_download_url:
-                        "https://github.com/thtbee/nectarlink/releases/download/v9/tarball-arm64".into(),
+                        "https://github.com/dafanshu/nectarlink-archive/releases/download/v9/tarball-arm64"
+                            .into(),
                 },
                 Asset {
                     name: "SHA256SUMS.txt".into(),
-                    browser_download_url: "https://github.com/thtbee/nectarlink/releases/download/v9/sums"
-                        .into(),
+                    browser_download_url:
+                        "https://github.com/dafanshu/nectarlink-archive/releases/download/v9/sums".into(),
                 },
             ],
         }
@@ -1505,14 +1512,14 @@ mod tests {
         let x64 = newer_release_for(release("v9.0.0"), "0.0.1", "-x64-setup.exe").unwrap();
         assert_eq!(
             (x64.version.as_str(), x64.installer_url.as_str()),
-            ("9.0.0", "https://github.com/thtbee/nectarlink/releases/download/v9/setup")
+            ("9.0.0", "https://github.com/dafanshu/nectarlink-archive/releases/download/v9/setup")
         );
         let arm64 = newer_release_for(release("v9.0.0"), "0.0.1", "-arm64-setup.exe").unwrap();
         assert_eq!(
             (arm64.installer_name.as_str(), arm64.installer_url.as_str()),
             (
                 "Nectarlink-9.0.0-arm64-setup.exe",
-                "https://github.com/thtbee/nectarlink/releases/download/v9/setup-arm64"
+                "https://github.com/dafanshu/nectarlink-archive/releases/download/v9/setup-arm64"
             )
         );
         assert!(newer_release(release("v0.0.1"), "0.0.1").is_none());
@@ -1523,9 +1530,11 @@ mod tests {
         no_sums.assets.pop();
         assert!(newer_release(no_sums, "0.0.1").is_none());
         // Files anywhere but our own releases are never downloaded.
-        for elsewhere in
-            ["https://example.com/setup", "https://github.com/someone/nectarlink/releases/download/v9/setup"]
-        {
+        for elsewhere in [
+            "https://example.com/setup",
+            "https://github.com/thtbee/nectarlink/releases/download/v9/setup",
+            "https://github.com/someone/nectarlink/releases/download/v9/setup",
+        ] {
             let mut moved = release("v9.0.0");
             moved.assets[0].browser_download_url = elsewhere.into();
             assert!(newer_release_for(moved, "0.0.1", "-x64-setup.exe").is_none(), "{elsewhere}");
@@ -1542,7 +1551,7 @@ mod tests {
             (appimage.installer_name.as_str(), appimage.installer_url.as_str()),
             (
                 "Nectarlink-9.0.0-x86_64.AppImage",
-                "https://github.com/thtbee/nectarlink/releases/download/v9/appimage-x64"
+                "https://github.com/dafanshu/nectarlink-archive/releases/download/v9/appimage-x64"
             )
         );
         let deb = newer_release_for(release("v9.0.0"), "0.0.1", "_amd64.deb").unwrap();
@@ -1550,7 +1559,7 @@ mod tests {
             (deb.installer_name.as_str(), deb.installer_url.as_str()),
             (
                 "nectarlink_9.0.0_amd64.deb",
-                "https://github.com/thtbee/nectarlink/releases/download/v9/deb-amd64"
+                "https://github.com/dafanshu/nectarlink-archive/releases/download/v9/deb-amd64"
             )
         );
         #[cfg(target_os = "linux")]

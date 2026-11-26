@@ -10,9 +10,9 @@
 //! ```json
 //! { "schema": 1, "channel": "nightly", "version": "0.1.5-nightly.7",
 //!   "name": "Amber Clover", "published": "2026-11-03T10:17:00Z",
-//!   "notes": "https://github.com/thtbee/nectarlink/releases/tag/v0.1.5-nightly.7",
+//!   "notes": "https://github.com/dafanshu/nectarlink-archive/releases/tag/v0.1.5-nightly.7",
 //!   "files": [{ "name": "Nectarlink-0.1.5-nightly.7-x64-setup.exe",
-//!               "url": "https://github.com/thtbee/nectarlink/releases/download/…",
+//!               "url": "https://github.com/dafanshu/nectarlink-archive/releases/download/…",
 //!               "sha256": "…", "size": 41234567 }] }
 //! ```
 
@@ -26,11 +26,16 @@ use crate::{
 };
 
 /// Where the feeds are: `<FEEDS><channel>.json`.
-const FEEDS: &str = "https://raw.githubusercontent.com/thtbee/nectarlink/channels/";
+const FEEDS: &str = "https://raw.githubusercontent.com/dafanshu/nectarlink-archive/channels/";
 /// The only place a feed's files may come from.
-pub const RELEASE_DOWNLOADS: &str = "https://github.com/thtbee/nectarlink/releases/download/";
+pub const RELEASE_DOWNLOADS: &str = "https://github.com/dafanshu/nectarlink-archive/releases/download/";
 /// Release notes live on the repository's own pages.
-const NOTES: &str = "https://github.com/thtbee/nectarlink/";
+const NOTES: &str = "https://github.com/dafanshu/nectarlink-archive/";
+pub const RELEASES_URL: &str = "https://github.com/dafanshu/nectarlink-archive/releases";
+
+pub fn release_notes_url(url: &str) -> &str {
+    if url.starts_with(NOTES) { url } else { RELEASES_URL }
+}
 /// A feed is a few hundred bytes; anything near this is not one.
 const MAX_FEED: usize = 64 * 1024;
 const SCHEMA: u32 = 1;
@@ -85,8 +90,9 @@ fn validated(mut feed: Feed, channel: Channel) -> Result<Feed, String> {
     if version::channel_of(&feed.version) != channel {
         return Err(format!("{} isn't a {} build", feed.version, channel.as_str()));
     }
-    if !feed.notes.starts_with(NOTES) {
-        feed.notes = format!("{NOTES}releases");
+    let notes = release_notes_url(&feed.notes);
+    if notes != feed.notes {
+        feed.notes = notes.to_owned();
     }
     feed.name = feed.name.filter(|n| n.len() <= 64 && !n.chars().any(char::is_control));
     feed.files.retain(|f| {
@@ -109,7 +115,7 @@ pub fn fetch(channel: Channel) -> Result<Option<Feed>, String> {
     let cached =
         CACHE.lock().unwrap_or_else(|e| e.into_inner()).as_ref().and_then(|c| c.get(&channel).cloned());
     match http::get_fresh(&url, MAX_FEED, cached.as_ref().map(|(etag, _)| etag.as_str())) {
-        Ok(Fresh::NotModified) => Ok(cached.map(|(_, feed)| feed)),
+        Ok(Fresh::NotModified) => Ok(cached.map(|(_, feed)| feed).filter(|feed| !feed.files.is_empty())),
         Ok(Fresh::Changed { body, etag }) => {
             let feed: Feed = serde_json::from_slice(&body).map_err(|e| format!("feed: {e}"))?;
             let feed = validated(feed, channel)?;
@@ -119,7 +125,9 @@ pub fn fetch(channel: Channel) -> Result<Option<Feed>, String> {
                 Some(etag) => cache.insert(channel, (etag, feed.clone())),
                 None => cache.remove(&channel),
             };
-            Ok(Some(feed))
+            // The fork may still carry inherited feeds with only upstream assets.
+            // An empty validated feed must not mask our own GitHub Releases.
+            Ok((!feed.files.is_empty()).then_some(feed))
         }
         Err(e) if e == "HTTP 404" => Ok(None),
         Err(e) => Err(e),
@@ -137,7 +145,7 @@ mod tests {
             version: version.into(),
             name: Some("Amber Clover".into()),
             published: None,
-            notes: "https://github.com/thtbee/nectarlink/releases/tag/v1".into(),
+            notes: "https://github.com/dafanshu/nectarlink-archive/releases/tag/v1".into(),
             files: vec![FeedFile {
                 name: "Nectarlink-0.1.5-nightly.7-x64-setup.exe".into(),
                 url: format!("{RELEASE_DOWNLOADS}v0.1.5-nightly.7/Nectarlink-0.1.5-nightly.7-x64-setup.exe"),
@@ -173,6 +181,10 @@ mod tests {
         let good = f.files[0].clone();
         f.files = vec![
             FeedFile { url: "https://evil.example/Nectarlink-setup.exe".into(), ..good.clone() },
+            FeedFile {
+                url: "https://github.com/thtbee/nectarlink/releases/download/v0.1.5/nightly-setup.exe".into(),
+                ..good.clone()
+            },
             FeedFile { url: format!("{RELEASE_DOWNLOADS}../../other/x.exe"), ..good.clone() },
             FeedFile { name: "..\\setup.exe".into(), ..good.clone() },
             FeedFile { sha256: "xyz".into(), ..good.clone() },
@@ -187,9 +199,9 @@ mod tests {
     #[test]
     fn real_json_parses() {
         let json = br#"{"schema":1,"channel":"nightly","version":"0.1.5-nightly.7","name":"Amber Clover",
-            "published":"2026-11-03T10:17:00Z","notes":"https://github.com/thtbee/nectarlink/releases/tag/v0.1.5-nightly.7",
+            "published":"2026-11-03T10:17:00Z","notes":"https://github.com/dafanshu/nectarlink-archive/releases/tag/v0.1.5-nightly.7",
             "files":[{"name":"Nectarlink-0.1.5-nightly.7-android.apk",
-            "url":"https://github.com/thtbee/nectarlink/releases/download/v0.1.5-nightly.7/Nectarlink-0.1.5-nightly.7-android.apk",
+            "url":"https://github.com/dafanshu/nectarlink-archive/releases/download/v0.1.5-nightly.7/Nectarlink-0.1.5-nightly.7-android.apk",
             "sha256":"0000000000000000000000000000000000000000000000000000000000000000","size":12}],"later":"ignored"}"#;
         let parsed: Feed = serde_json::from_slice(json).unwrap();
         assert_eq!(validated(parsed, Channel::Nightly).unwrap().files.len(), 1);

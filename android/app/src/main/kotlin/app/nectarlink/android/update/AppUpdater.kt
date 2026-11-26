@@ -289,7 +289,7 @@ class AppUpdater(context: Context) {
         } finally {
             connection.disconnect()
         }
-        return checkedFeed(JSONObject(body), channel)
+        return checkedFeed(JSONObject(body), channel).takeIf { it.getJSONArray("files").length() > 0 }
     }
 
     private fun latestRelease(): Update? {
@@ -321,7 +321,7 @@ class AppUpdater(context: Context) {
         }
         return Update(
             version = version,
-            notesUrl = release.getString("html_url"),
+            notesUrl = release.optString("html_url").takeIf { it.startsWith(NOTES) } ?: "${NOTES}releases",
             apkUrl = apk.getString("browser_download_url"),
             apkName = apk.getString("name"),
             sumsUrl = sums.getString("browser_download_url"),
@@ -640,14 +640,14 @@ class AppUpdater(context: Context) {
 
     companion object {
         private const val TAG = "AppUpdater"
-        private const val LATEST = "https://api.github.com/repos/thtbee/nectarlink/releases/latest"
+        private const val LATEST = "https://api.github.com/repos/dafanshu/nectarlink-archive/releases/latest"
 
         /** The channels' feeds: `<FEEDS><channel>.json`. */
-        private const val FEEDS = "https://raw.githubusercontent.com/thtbee/nectarlink/channels/"
+        private const val FEEDS = "https://raw.githubusercontent.com/dafanshu/nectarlink-archive/channels/"
 
         /** The only place an update is downloaded from. */
-        private const val RELEASE_DOWNLOADS = "https://github.com/thtbee/nectarlink/releases/download/"
-        private const val NOTES = "https://github.com/thtbee/nectarlink/"
+        private const val RELEASE_DOWNLOADS = "https://github.com/dafanshu/nectarlink-archive/releases/download/"
+        private const val NOTES = "https://github.com/dafanshu/nectarlink-archive/"
         private const val FEED_SCHEMA = 1
         private const val MAX_FEED = 64 * 1024
         private const val UPDATE_CHANNEL = "channel"
